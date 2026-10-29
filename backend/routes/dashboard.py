@@ -221,9 +221,15 @@ async def get_dashboard_data(current_admin: dict = Depends(get_current_admin)):
         idx += 1
 
     if not dept_averages:
-        dept_averages = [
-            {"name": "Computer Science", "rate": 92.8, "color": "#3b82f6"}
-        ]
+        async for s in student_coll.find(student_query):
+            dept_name = s.get("department") or "Computer Science & Engineering"
+            rate = float(s.get("attendanceRate", 100.0) or 100.0)
+            dept_averages.append({
+                "name": dept_name,
+                "rate": round(rate, 1),
+                "color": "#3b82f6"
+            })
+            break
 
     # Weekly attendance trends (Current week working days Mon-Sat, real MongoDB data, reset-aware)
     monday_dt = now - timedelta(days=now.weekday())
@@ -331,7 +337,7 @@ async def get_dashboard_data(current_admin: dict = Depends(get_current_admin)):
     activities = activities[:5]
     if not activities:
         activities = [
-            {"id": "act-1", "type": "settings", "text": "System operational and connected to MongoDB", "time": "Just now"}
+            {"id": "act-1", "type": "settings", "text": "System operational and connected to PostgreSQL database", "time": "Just now"}
         ]
 
     return {

@@ -74,17 +74,15 @@ export default function LiveAttendancePage() {
         
         const now = new Date();
         const decimalTime = now.getHours() + now.getMinutes() / 60.0;
-        let currentSession = '';
-        if (8.5 <= decimalTime && decimalTime <= 9.5) {
-          currentSession = 'Morning';
-        } else if (13.25 <= decimalTime && decimalTime <= 14.25) {
-          currentSession = 'Afternoon';
-        }
+        const currentSession = decimalTime < 13.0 ? 'Morning' : 'Afternoon';
         
         const processed = new Set();
         data.forEach(record => {
-          if (record.status === 'Present' && record.session === currentSession) {
-            processed.add(record.registerNo);
+          const isPresentInSession = currentSession === 'Morning'
+            ? (record.morningSession === 'Present' || (record.session === 'Morning' && record.status === 'Present'))
+            : (record.afternoonSession === 'Present' || (record.session === 'Afternoon' && record.status === 'Present'));
+          if (isPresentInSession) {
+            processed.add(String(record.registerNo));
           }
         });
         processedStudentsRef.current = processed;

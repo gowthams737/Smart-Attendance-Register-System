@@ -84,6 +84,33 @@ async def seed_database():
         await student_coll.insert_many(INITIAL_STUDENTS)
         logger.info(f"Seeded {len(INITIAL_STUDENTS)} students.")
 
+    # Synchronize real students with biometrics and face encodings
+    from backend.seed_data import REAL_STUDENTS
+    for r_student in REAL_STUDENTS:
+        reg_no = r_student.get("registerNo")
+        if not reg_no:
+            continue
+        reg_str = str(reg_no)
+        query = {"$or": [{"registerNo": reg_str}, {"registerNo": int(reg_str)}]} if reg_str.isdigit() else {"registerNo": reg_str}
+        existing = await student_coll.find_one(query)
+        if not existing:
+            await student_coll.insert_one(dict(r_student))
+            logger.info(f"Synchronized real student: {r_student['name']} ({reg_str})")
+        else:
+            curr_encodings = existing.get("faceEncodings") or []
+            if not curr_encodings and r_student.get("faceEncodings"):
+                await student_coll.update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": {
+                        "faceEncodings": r_student["faceEncodings"],
+                        "avatar": r_student.get("avatar") or existing.get("avatar"),
+                        "rollNo": r_student.get("rollNo") or existing.get("rollNo"),
+                        "section": r_student.get("section") or existing.get("section"),
+                        "year": r_student.get("year") or existing.get("year"),
+                    }}
+                )
+                logger.info(f"Updated face encodings for real student: {r_student['name']} ({reg_str})")
+
     # Ensure all existing students have default password hash if not custom
     from backend.routes.auth import get_default_student_password, hash_password
     async for s in student_coll.find({}):

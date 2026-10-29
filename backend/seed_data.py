@@ -1,4 +1,16 @@
-INITIAL_STUDENTS = [
+import os
+import json
+
+REAL_STUDENTS_FILE = os.path.join(os.path.dirname(__file__), "real_students.json")
+REAL_STUDENTS = []
+if os.path.exists(REAL_STUDENTS_FILE):
+    try:
+        with open(REAL_STUDENTS_FILE, "r", encoding="utf-8") as f:
+            REAL_STUDENTS = json.load(f)
+    except Exception:
+        REAL_STUDENTS = []
+
+INITIAL_STUDENTS = list(REAL_STUDENTS) + [
   {
     "name": "Aarav Sharma",
     "registerNo": "CS2023001",

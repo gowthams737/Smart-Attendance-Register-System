@@ -291,6 +291,7 @@ async def upload_student_images(
     os.makedirs(student_dir, exist_ok=True)
 
     saved_filenames = []
+    saved_file_paths = []
     existing_files_count = len([f for f in os.listdir(student_dir) if os.path.isfile(os.path.join(student_dir, f))])
 
     for i, file in enumerate(files):
@@ -302,10 +303,25 @@ async def upload_student_images(
             shutil.copyfileobj(file.file, buffer)
         
         saved_filenames.append(f"/dataset/{registerNo}/{img_name}")
+        saved_file_paths.append(file_path)
+
+    new_encodings = []
+    for fp in saved_file_paths:
+        try:
+            import face_recognition
+            img = face_recognition.load_image_file(fp)
+            encs = face_recognition.face_encodings(img)
+            if encs:
+                new_encodings.append(encs[0].tolist())
+        except Exception as e:
+            logger.error(f"Error extracting face encoding for {fp}: {e}")
 
     update_data = {
         "$push": {"uploadedImages": {"$each": saved_filenames}}
     }
+    if new_encodings:
+        update_data["$push"]["faceEncodings"] = {"$each": new_encodings}
+
     if saved_filenames:
         current_avatar = student.get("avatar")
         if not current_avatar or "unsplash.com" in current_avatar or current_avatar.startswith("http"):

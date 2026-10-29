@@ -294,7 +294,7 @@ class AsyncPostgresCollection:
                 f"SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='{self.table_name}';"
             )}
 
-            existing = await conn.fetchrow(f'SELECT id FROM "{self.table_name}" {where_clause} LIMIT 1;', *params)
+            existing = await conn.fetchrow(f'SELECT * FROM "{self.table_name}" {where_clause} LIMIT 1;', *params)
             if not existing:
                 if upsert:
                     insert_doc = dict(filter_dict or {})
@@ -302,6 +302,40 @@ class AsyncPostgresCollection:
                     res = await self.insert_one(insert_doc)
                     return UpdateResult(0, 1, upserted_id=res.inserted_id)
                 return UpdateResult(0, 0)
+
+            if "$push" in update_dict:
+                for col, push_val in update_dict["$push"].items():
+                    raw_cur = existing[col] if col in existing else None
+                    if isinstance(raw_cur, str):
+                        try:
+                            cur_list = json.loads(raw_cur)
+                        except Exception:
+                            cur_list = []
+                    elif isinstance(raw_cur, list):
+                        cur_list = list(raw_cur)
+                    else:
+                        cur_list = []
+
+                    if isinstance(push_val, dict) and "$each" in push_val:
+                        cur_list.extend(push_val["$each"])
+                    else:
+                        cur_list.append(push_val)
+                    set_dict[col] = cur_list
+
+            if "$pull" in update_dict:
+                for col, pull_val in update_dict["$pull"].items():
+                    raw_cur = existing[col] if col in existing else None
+                    if isinstance(raw_cur, str):
+                        try:
+                            cur_list = json.loads(raw_cur)
+                        except Exception:
+                            cur_list = []
+                    elif isinstance(raw_cur, list):
+                        cur_list = list(raw_cur)
+                    else:
+                        cur_list = []
+                    cur_list = [x for x in cur_list if x != pull_val]
+                    set_dict[col] = cur_list
 
             rec_id = existing["id"]
             set_clauses = []
@@ -369,6 +403,9 @@ class AsyncPostgresCollection:
             res = await conn.execute(update_sql, *(update_vals + reindexed_params))
             count = int(res.split(" ")[-1]) if "UPDATE" in res else 0
             return UpdateResult(count, count)
+
+    async def replace_one(self, filter_dict, doc, upsert=False):
+        return await self.update_one(filter_dict, doc, upsert=upsert)
 
     async def delete_one(self, filter_dict):
         where_str, params, _ = self._build_where(filter_dict)

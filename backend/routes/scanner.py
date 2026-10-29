@@ -219,37 +219,21 @@ async def recognize_face(
                     "student": student_payload
                 }
 
-            # Determine time windows
+            # Determine session (Morning before 1:00 PM IST, Afternoon from 1:00 PM IST onward)
             decimal_time = now.hour + now.minute / 60.0
-            detail_msg = None
-            if 8.5 <= decimal_time < 9.5:
+            if decimal_time < 13.0:
                 session_name = "Morning"
                 morning_session = "Present"
                 afternoon_session = "---"
-                status_determined = "Present"
-                save_record = True
-            elif 13.25 <= decimal_time < 14.25:
+            else:
                 session_name = "Afternoon"
                 morning_session = "---"
                 afternoon_session = "Present"
-                status_determined = "Present"
-                save_record = True
-            else:
-                save_record = False
-                if decimal_time < 12.0:
-                    session_name = "Morning"
-                    morning_session = "Absent"
-                    afternoon_session = "---"
-                    status_determined = "Absent"
-                    detail_msg = f"Recognized: {student_payload['name']} (Late scan - Morning attendance window closed at 9:30 AM). Attendance: ABSENT."
-                else:
-                    session_name = "Afternoon"
-                    morning_session = "---"
-                    afternoon_session = "Absent"
-                    status_determined = "Absent"
-                    detail_msg = f"Recognized: {student_payload['name']} (Late scan - Afternoon attendance window closed at 2:15 PM). Attendance: ABSENT."
+            status_determined = "Present"
+            save_record = True
+            detail_msg = f"Recognized: {student_payload['name']} -> Marked Present for {session_name} Session"
 
-            # Check database for duplicate record
+            # Check database for existing attendance record today
             attendance_coll = get_attendance_collection()
             query_reg_no = reg_no_str
             existing_record = await attendance_coll.find_one({
@@ -261,32 +245,20 @@ async def recognize_face(
             })
 
             if existing_record:
-                session_has_record = False
+                session_already_present = False
                 if session_name == "Morning":
-                    session_has_record = (
-                        existing_record.get("morningSession") in ["Present", "Absent"] or
-                        existing_record.get("session") == "Morning" or
-                        existing_record.get("modifiedManually")
-                    )
+                    session_already_present = (existing_record.get("morningSession") == "Present")
+                    if existing_record.get("afternoonSession"):
+                        afternoon_session = existing_record.get("afternoonSession")
                 elif session_name == "Afternoon":
-                    session_has_record = (
-                        existing_record.get("afternoonSession") in ["Present", "Absent"] or
-                        existing_record.get("session") == "Afternoon" or
-                        existing_record.get("modifiedManually")
-                    )
+                    session_already_present = (existing_record.get("afternoonSession") == "Present")
+                    if existing_record.get("morningSession"):
+                        morning_session = existing_record.get("morningSession")
                 else:
-                    session_has_record = True
+                    session_already_present = (existing_record.get("status") == "Present")
 
-                if session_has_record:
-                    curr_status = existing_record.get("status")
-                    if not curr_status or curr_status == "---":
-                        if session_name == "Morning":
-                            curr_status = existing_record.get("morningSession", "Present")
-                        elif session_name == "Afternoon":
-                            curr_status = existing_record.get("afternoonSession", "Present")
-                        else:
-                            curr_status = "Present"
-
+                if session_already_present:
+                    curr_status = existing_record.get("status") or "Present"
                     return {
                         "match": True,
                         "face_detected": True,
@@ -301,7 +273,7 @@ async def recognize_face(
                         "status": curr_status,
                         "session": session_name,
                         "attendance_time": existing_record.get("attendance_time", current_time_str),
-                        "detail": "Already Detected",
+                        "detail": f"{student_payload['name']} already recorded as Present for {session_name} session.",
                         "student": student_payload
                     }
 
