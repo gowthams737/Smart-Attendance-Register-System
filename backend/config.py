@@ -11,6 +11,7 @@ PORT = int(os.getenv("PORT", "8000"))
 DATASET_DIR = os.getenv("DATASET_DIR", "dataset")
 
 # PostgreSQL Configuration
+DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "")
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "127.0.0.1")

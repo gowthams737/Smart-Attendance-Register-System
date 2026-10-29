@@ -10,6 +10,7 @@ from backend.config import HOST, PORT, DATASET_DIR
 from backend.db import (
     connect_to_postgres,
     close_postgres_connection,
+    init_postgres_schema,
     connect_to_mongo,
     close_mongo_connection,
     get_students_collection,
@@ -119,6 +120,7 @@ async def periodic_attendance_finalizer():
 @app.on_event("startup")
 async def startup_event():
     await connect_to_postgres()
+    await init_postgres_schema()
     await seed_database()
     try:
         from backend.routes.scanner import load_student_encodings

@@ -9,6 +9,7 @@ from typing import Optional, List, Dict, Any
 import asyncpg
 
 from backend.config import (
+    DATABASE_URL,
     POSTGRES_USER,
     POSTGRES_PASSWORD,
     POSTGRES_HOST,
@@ -480,6 +481,215 @@ class AsyncPostgresCollection:
 
         return AsyncCursor(lambda s, l, sk: fetcher())
 
+TABLE_SCHEMAS = {
+    "admins": """
+        CREATE TABLE IF NOT EXISTS admins (
+            id VARCHAR(64) PRIMARY KEY,
+            "name" VARCHAR(255) NOT NULL,
+            "email" VARCHAR(255) UNIQUE NOT NULL,
+            "password" VARCHAR(255) NOT NULL,
+            "phone" VARCHAR(50),
+            "title" VARCHAR(255),
+            "role" VARCHAR(50) DEFAULT 'admin',
+            "is_hod" BOOLEAN DEFAULT FALSE,
+            "avatar" TEXT,
+            "roll" VARCHAR(100),
+            "class" VARCHAR(50),
+            "section" VARCHAR(50),
+            "year" VARCHAR(50),
+            "created_at" VARCHAR(100)
+        );
+    """,
+    "students": """
+        CREATE TABLE IF NOT EXISTS students (
+            id VARCHAR(64) PRIMARY KEY,
+            "registerNo" VARCHAR(50) UNIQUE NOT NULL,
+            "rollNo" VARCHAR(50),
+            "name" VARCHAR(255) NOT NULL,
+            "department" VARCHAR(255) DEFAULT 'Computer Science & Engineering',
+            "year" VARCHAR(50) DEFAULT '3rd Year',
+            "section" VARCHAR(50) DEFAULT 'A',
+            "email" VARCHAR(255),
+            "phone" VARCHAR(50),
+            "gender" VARCHAR(50) DEFAULT 'Not Specified',
+            "avatar" TEXT,
+            "uploadedImages" JSONB DEFAULT '[]'::jsonb,
+            "faceEncodings" JSONB DEFAULT '[]'::jsonb,
+            "createdDate" VARCHAR(50) DEFAULT '---',
+            "createdTime" VARCHAR(50) DEFAULT '---',
+            "attendanceRate" DOUBLE PRECISION DEFAULT 100.0,
+            "totalClasses" INTEGER DEFAULT 0,
+            "presentClasses" INTEGER DEFAULT 0,
+            "password" VARCHAR(255),
+            "has_custom_password" BOOLEAN DEFAULT FALSE
+        );
+    """,
+    "attendance": """
+        CREATE TABLE IF NOT EXISTS attendance (
+            id VARCHAR(64) PRIMARY KEY,
+            "registerNo" VARCHAR(50) NOT NULL,
+            "name" VARCHAR(255) NOT NULL,
+            "rollNo" VARCHAR(50),
+            "department" VARCHAR(255),
+            "year" VARCHAR(50),
+            "section" VARCHAR(50),
+            "class" VARCHAR(50),
+            "date" VARCHAR(50) NOT NULL,
+            "day" VARCHAR(50),
+            "session" VARCHAR(50),
+            "morningSession" VARCHAR(50) DEFAULT '---',
+            "afternoonSession" VARCHAR(50) DEFAULT '---',
+            "time" VARCHAR(50),
+            "attendance_time" VARCHAR(50),
+            "status" VARCHAR(50) NOT NULL,
+            "confidence" DOUBLE PRECISION DEFAULT 100.0,
+            "method" VARCHAR(100) DEFAULT 'Manual Entry',
+            "studentId" VARCHAR(64),
+            "modifiedManually" BOOLEAN DEFAULT FALSE,
+            "lastModifiedAt" VARCHAR(100),
+            "lastModifiedBy" VARCHAR(255),
+            "createdAt" TIMESTAMPTZ DEFAULT NOW()
+        );
+    """,
+    "attendance_resets": """
+        CREATE TABLE IF NOT EXISTS attendance_resets (
+            id VARCHAR(64) PRIMARY KEY,
+            "reset_id" VARCHAR(100) UNIQUE NOT NULL,
+            "reset_timestamp" VARCHAR(100),
+            "reset_date" VARCHAR(50),
+            "reset_date_display" VARCHAR(50),
+            "reset_time_display" VARCHAR(50),
+            "reset_time_decimal" DOUBLE PRECISION,
+            "scope" VARCHAR(50) NOT NULL,
+            "year" VARCHAR(50),
+            "section" VARCHAR(50),
+            "registerNo" VARCHAR(50),
+            "student_name" VARCHAR(255),
+            "performed_by" VARCHAR(255),
+            "performed_by_email" VARCHAR(255),
+            "performed_by_role" VARCHAR(50),
+            "status" VARCHAR(50) DEFAULT 'active',
+            "created_at" VARCHAR(100),
+            "undone_at" VARCHAR(100),
+            "undone_by" VARCHAR(255)
+        );
+    """,
+    "leaves": """
+        CREATE TABLE IF NOT EXISTS leaves (
+            id VARCHAR(64) PRIMARY KEY,
+            "registerNo" VARCHAR(50) NOT NULL,
+            "name" VARCHAR(255) NOT NULL,
+            "department" VARCHAR(255),
+            "year" VARCHAR(50),
+            "section" VARCHAR(50),
+            "date" VARCHAR(50),
+            "fromDate" VARCHAR(50),
+            "toDate" VARCHAR(50),
+            "reason" TEXT,
+            "status" VARCHAR(50) DEFAULT 'Pending',
+            "adminResponse" TEXT,
+            "rejectionReason" TEXT,
+            "attendancePercentage" DOUBLE PRECISION,
+            "isLowAttendance" BOOLEAN DEFAULT FALSE,
+            "submittedAt" VARCHAR(100),
+            "processed_at" VARCHAR(100),
+            "cancelled_at" VARCHAR(100),
+            "created_at" VARCHAR(100)
+        );
+    """,
+    "leave_letters": """
+        CREATE TABLE IF NOT EXISTS leave_letters (
+            id VARCHAR(64) PRIMARY KEY,
+            "studentId" VARCHAR(64),
+            "registerNo" VARCHAR(50) NOT NULL,
+            "name" VARCHAR(255) NOT NULL,
+            "rollNo" VARCHAR(50),
+            "department" VARCHAR(255),
+            "year" VARCHAR(50),
+            "section" VARCHAR(50),
+            "leaveDate" VARCHAR(50),
+            "fromDate" VARCHAR(50),
+            "toDate" VARCHAR(50),
+            "reason" TEXT,
+            "letterContent" TEXT,
+            "status" VARCHAR(50) DEFAULT 'Pending',
+            "adminResponse" TEXT,
+            "rejectionReason" TEXT,
+            "attendancePercentage" DOUBLE PRECISION,
+            "isLowAttendance" BOOLEAN DEFAULT FALSE,
+            "submittedAt" VARCHAR(100),
+            "processed_at" VARCHAR(100),
+            "created_at" VARCHAR(100)
+        );
+    """,
+    "notifications": """
+        CREATE TABLE IF NOT EXISTS notifications (
+            id VARCHAR(64) PRIMARY KEY,
+            "recipient" VARCHAR(100) NOT NULL,
+            "type" VARCHAR(100) NOT NULL,
+            "title" VARCHAR(255) NOT NULL,
+            "message" TEXT NOT NULL,
+            "read" BOOLEAN DEFAULT FALSE,
+            "time" VARCHAR(100),
+            "studentRegisterNo" VARCHAR(50),
+            "studentName" VARCHAR(255),
+            "target_advisor_email" VARCHAR(255),
+            "year" VARCHAR(50),
+            "section" VARCHAR(50),
+            "letterId" VARCHAR(64),
+            "leaveId" VARCHAR(64),
+            "leaveDate" VARCHAR(50),
+            "reason" TEXT,
+            "previousStatus" VARCHAR(50),
+            "newStatus" VARCHAR(50),
+            "attendancePercentage" DOUBLE PRECISION,
+            "isLowAttendance" BOOLEAN,
+            "cancelled_at" VARCHAR(100),
+            "created_at" VARCHAR(100)
+        );
+    """,
+    "sessions": """
+        CREATE TABLE IF NOT EXISTS sessions (
+            id VARCHAR(64) PRIMARY KEY,
+            "token" VARCHAR(255) UNIQUE NOT NULL,
+            "email" VARCHAR(255) NOT NULL,
+            "role" VARCHAR(50),
+            "is_hod" BOOLEAN DEFAULT FALSE,
+            "studentId" VARCHAR(64),
+            "registerNo" VARCHAR(50),
+            "class" VARCHAR(50),
+            "year" VARCHAR(50),
+            "section" VARCHAR(50),
+            "created_at" TIMESTAMPTZ DEFAULT NOW()
+        );
+    """,
+    "settings": """
+        CREATE TABLE IF NOT EXISTS settings (
+            id VARCHAR(64) PRIMARY KEY,
+            "systemName" VARCHAR(255) DEFAULT 'Smart Attendance Register',
+            "academicYear" VARCHAR(50) DEFAULT '2026-2027',
+            "attendanceThreshold" DOUBLE PRECISION DEFAULT 75.0,
+            "backupInterval" VARCHAR(50) DEFAULT 'Weekly',
+            "enableNotifications" BOOLEAN DEFAULT TRUE,
+            "cameraResolution" VARCHAR(50) DEFAULT '1080p'
+        );
+    """
+}
+
+TABLE_INDEXES = [
+    'CREATE INDEX IF NOT EXISTS idx_students_regno ON students ("registerNo");',
+    'CREATE INDEX IF NOT EXISTS idx_students_email ON students ("email");',
+    'CREATE INDEX IF NOT EXISTS idx_attendance_regno_date ON attendance ("registerNo", "date");',
+    'CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance ("date");',
+    'CREATE INDEX IF NOT EXISTS idx_attendance_student_id ON attendance ("studentId");',
+    'CREATE INDEX IF NOT EXISTS idx_attendance_resets_id ON attendance_resets ("reset_id");',
+    'CREATE INDEX IF NOT EXISTS idx_leaves_regno ON leaves ("registerNo");',
+    'CREATE INDEX IF NOT EXISTS idx_leave_letters_regno ON leave_letters ("registerNo");',
+    'CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications ("recipient", "read");',
+    'CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions ("token");',
+    'CREATE INDEX IF NOT EXISTS idx_admins_email ON admins ("email");'
+]
+
 class Database:
     pool: Optional[asyncpg.Pool] = None
 
@@ -488,19 +698,42 @@ db_instance = Database()
 async def connect_to_postgres():
     logger.info("Connecting to PostgreSQL connection pool...")
     try:
-        db_instance.pool = await asyncpg.create_pool(
-            user=POSTGRES_USER,
-            password=POSTGRES_PASSWORD,
-            host=POSTGRES_HOST,
-            port=POSTGRES_PORT,
-            database=POSTGRES_DB,
-            min_size=2,
-            max_size=20
-        )
-        logger.info(f"Connected successfully to PostgreSQL database: {POSTGRES_DB}")
+        if DATABASE_URL:
+            db_instance.pool = await asyncpg.create_pool(
+                dsn=DATABASE_URL,
+                min_size=2,
+                max_size=20
+            )
+            logger.info("Connected successfully to PostgreSQL database using DATABASE_URL.")
+        else:
+            db_instance.pool = await asyncpg.create_pool(
+                user=POSTGRES_USER,
+                password=POSTGRES_PASSWORD,
+                host=POSTGRES_HOST,
+                port=POSTGRES_PORT,
+                database=POSTGRES_DB,
+                min_size=2,
+                max_size=20
+            )
+            logger.info(f"Connected successfully to PostgreSQL database: {POSTGRES_DB}")
     except Exception as e:
         logger.error(f"Failed to connect to PostgreSQL: {e}")
         raise e
+
+async def init_postgres_schema():
+    """Create missing PostgreSQL tables and indexes idempotently."""
+    if db_instance.pool is None:
+        raise RuntimeError("Database pool not initialized. Call connect_to_postgres first.")
+
+    logger.info("Verifying and initializing PostgreSQL schema...")
+    async with db_instance.pool.acquire() as conn:
+        for table_name, create_sql in TABLE_SCHEMAS.items():
+            await conn.execute(create_sql)
+            logger.info(f"Verified/created PostgreSQL table: {table_name}")
+
+        for index_sql in TABLE_INDEXES:
+            await conn.execute(index_sql)
+        logger.info("Verified/created all PostgreSQL table indexes successfully.")
 
 async def close_postgres_connection():
     logger.info("Closing PostgreSQL connection pool...")
