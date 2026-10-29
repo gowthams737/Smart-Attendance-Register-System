@@ -1,10 +1,11 @@
 import os
 import logging
 import asyncio
+from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, Request, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
 
 from backend.config import HOST, PORT, DATASET_DIR
 from backend.db import (
@@ -19,6 +20,10 @@ from backend.db import (
     get_leaves_collection
 )
 from backend.routes import auth, students, attendance, dashboard, settings, reports, scanner, student_portal
+from backend.routes.auth import get_default_student_password, hash_password
+
+# Indian Standard Time (IST) timezone
+IST_TZ = timezone(timedelta(hours=5, minutes=30))
 
 # Configure Logging
 logging.basicConfig(level=logging.INFO)
@@ -61,11 +66,24 @@ os.makedirs(DATASET_DIR, exist_ok=True)
 # Dataset Image Serving (serves real photo if exists, otherwise redirects to fallback avatar)
 @app.get("/dataset/{register_no}/{filename}")
 async def serve_dataset_image(register_no: str, filename: str):
-    file_path = os.path.join(DATASET_DIR, register_no, filename)
-    if os.path.isfile(file_path):
-        from fastapi.responses import FileResponse
-        return FileResponse(file_path)
-    from fastapi.responses import RedirectResponse
+    candidates = [
+        os.path.join(DATASET_DIR, register_no, filename),
+        os.path.join(os.getcwd(), DATASET_DIR, register_no, filename),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "dataset", register_no, filename),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset", register_no, filename),
+    ]
+    for cand in candidates:
+        cand_norm = os.path.normpath(cand)
+        if os.path.isfile(cand_norm):
+            ext = os.path.splitext(filename)[1].lower()
+            media_types = {
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".png": "image/png",
+                ".webp": "image/webp"
+            }
+            return FileResponse(cand_norm, media_type=media_types.get(ext, "image/jpeg"))
+
     return RedirectResponse(f"https://ui-avatars.com/api/?name={register_no}&background=6366f1&color=fff&bold=true")
 
 # Mount dataset directory to serve student images statically
@@ -186,7 +204,7 @@ async def seed_database():
             "title": "Class Advisor - 3rd Year CSE B",
             "roll": "Class Advisor - 3rd Year CSE B",
             "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100",
-            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %I:%M %p")
+            "created_at": datetime.now(timezone.utc).astimezone(IST_TZ).strftime("%Y-%m-%d %I:%M %p")
         },
         {
             "name": "Class Advisor (3rd Year - CSE B)",
@@ -200,7 +218,7 @@ async def seed_database():
             "title": "Class Advisor - 3rd Year CSE B",
             "roll": "Class Advisor - 3rd Year CSE B",
             "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100",
-            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %I:%M %p")
+            "created_at": datetime.now(timezone.utc).astimezone(IST_TZ).strftime("%Y-%m-%d %I:%M %p")
         },
         {
             "name": "Class Advisor (2nd Year - CSE A)",
@@ -214,7 +232,7 @@ async def seed_database():
             "title": "Class Advisor - 2nd Year CSE A",
             "roll": "Class Advisor - 2nd Year CSE A",
             "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100",
-            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %I:%M %p")
+            "created_at": datetime.now(timezone.utc).astimezone(IST_TZ).strftime("%Y-%m-%d %I:%M %p")
         }
     ]
 
@@ -237,14 +255,14 @@ async def seed_database():
                 )
 
 async def periodic_attendance_finalizer():
-    logger.info("Started continuous background automatic attendance finalizer loop.")
+    logger.info("Started continuous background automatic attendance finalizer loop (IST schedule).")
     while True:
         try:
             from backend.routes.attendance import check_and_finalize_sessions
             await check_and_finalize_sessions()
         except Exception as e:
             logger.error(f"Error in periodic_attendance_finalizer: {e}")
-        await asyncio.sleep(10)
+        await asyncio.sleep(30)
 
 # Lifespan/Startup events
 @app.on_event("startup")

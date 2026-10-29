@@ -87,7 +87,7 @@ def is_record_after_reset(att_doc, reset_doc):
         except Exception:
             pass
 
-    a_time_decimal = 9.5 if a_sess == "Morning" else 14.25
+    a_time_decimal = 9.5 if a_sess == "Morning" else 15.0
     return a_time_decimal > r_time
 
 
@@ -386,10 +386,11 @@ def compare_attendance_records(a, b):
 
 async def check_and_finalize_sessions(target_date: Optional[str] = None):
     """
-    Finalizes attendance sessions (Morning after 9:30 AM, Afternoon after 2:15 PM)
+    Finalizes attendance sessions (Morning after 9:30 AM IST, Afternoon after 3:00 PM IST)
     for target_date (or today in IST if target_date is None).
     Holidays (Sundays, 1st & 3rd Saturdays): NO finalization or attendance creation.
     Do NOT mark future sessions absent.
+    Preserves all Present and Leave records.
     """
     await cleanup_holiday_records()
     now = get_ist_now()
@@ -413,9 +414,9 @@ async def check_and_finalize_sessions(target_date: Optional[str] = None):
         morning_completed = True
         afternoon_completed = True
     elif date_to_process == today_str:
-        if decimal_time >= 9.5:
+        if decimal_time >= 9.5:   # 9:30 AM IST
             morning_completed = True
-        if decimal_time >= 14.25:
+        if decimal_time >= 15.0:  # 3:00 PM IST
             afternoon_completed = True
 
     if not morning_completed and not afternoon_completed:
@@ -423,19 +424,52 @@ async def check_and_finalize_sessions(target_date: Optional[str] = None):
 
     student_coll = get_students_collection()
     attendance_coll = get_attendance_collection()
+    from backend.db import get_leaves_collection, get_leave_letters_collection
+    leaves_coll = get_leaves_collection()
+    letters_coll = get_leave_letters_collection()
 
     students_cursor = student_coll.find({})
     async for student in students_cursor:
         reg_no = student.get("registerNo")
         if not reg_no:
             continue
+        reg_str = str(reg_no).strip()
 
         created_date = student.get("createdDate", "1970-01-01")
         if created_date > date_to_process:
             continue
 
+        # Check for approved leaves for this student on date_to_process
+        has_approved_leave = False
+        try:
+            leave_match = await leaves_coll.find_one({
+                "$or": [{"registerNo": reg_str}, {"registerNo": int(reg_str) if reg_str.isdigit() else reg_str}],
+                "status": "APPROVED",
+                "$or": [
+                    {"date": date_to_process},
+                    {"fromDate": {"$lte": date_to_process}, "toDate": {"$gte": date_to_process}}
+                ]
+            })
+            if leave_match:
+                has_approved_leave = True
+            else:
+                letter_match = await letters_coll.find_one({
+                    "$or": [{"registerNo": reg_str}, {"registerNo": int(reg_str) if reg_str.isdigit() else reg_str}],
+                    "status": "APPROVED",
+                    "$or": [
+                        {"leaveDate": date_to_process},
+                        {"fromDate": {"$lte": date_to_process}, "toDate": {"$gte": date_to_process}}
+                    ]
+                })
+                if letter_match:
+                    has_approved_leave = True
+        except Exception as e:
+            logger.debug(f"Error checking approved leaves for {reg_str}: {e}")
+
+        default_unmarked_status = "Leave" if has_approved_leave else "Absent"
+
         existing_doc = await attendance_coll.find_one({
-            "registerNo": reg_no,
+            "$or": [{"registerNo": reg_str}, {"registerNo": int(reg_str) if reg_str.isdigit() else reg_str}],
             "date": date_to_process
         })
 
@@ -447,23 +481,45 @@ async def check_and_finalize_sessions(target_date: Optional[str] = None):
 
             updated = False
             if morning_completed and m_status != "Present":
-                if m_status != "Absent":
-                    m_status = "Absent"
+                if m_status not in ["Absent", "Leave"]:
+                    m_status = default_unmarked_status
                     updated = True
+                elif m_status == "Absent" and has_approved_leave:
+                    m_status = "Leave"
+                    updated = True
+
             if afternoon_completed and a_status != "Present":
-                if a_status != "Absent":
-                    a_status = "Absent"
+                if a_status not in ["Absent", "Leave"]:
+                    a_status = default_unmarked_status
+                    updated = True
+                elif a_status == "Absent" and has_approved_leave:
+                    a_status = "Leave"
                     updated = True
 
             if updated:
                 if morning_completed and afternoon_completed:
-                    gen_status = "Present" if (m_status == "Present" or a_status == "Present") else "Absent"
+                    if m_status == "Present" and a_status == "Present":
+                        gen_status = "Present"
+                    elif m_status == "Absent" and a_status == "Absent":
+                        gen_status = "Absent"
+                    elif m_status == "Present" and a_status == "Absent":
+                        gen_status = "P/A"
+                    elif m_status == "Absent" and a_status == "Present":
+                        gen_status = "A/P"
+                    elif m_status == "Leave" and a_status == "Leave":
+                        gen_status = "Leave"
+                    elif m_status == "Leave" or a_status == "Leave":
+                        gen_status = "Present" if (m_status == "Present" or a_status == "Present") else "Leave"
+                    else:
+                        gen_status = "Present" if (m_status == "Present" or a_status == "Present") else "Absent"
+                elif morning_completed:
+                    gen_status = "Present" if m_status == "Present" else default_unmarked_status
                 else:
-                    gen_status = "Present" if m_status == "Present" else "Absent"
+                    gen_status = "Present" if a_status == "Present" else default_unmarked_status
 
                 rec_time = existing_doc.get("time")
                 if not rec_time or rec_time == "---":
-                    rec_time = "09:30 AM" if m_status == "Absent" else "02:15 PM"
+                    rec_time = "09:30 AM" if morning_completed and not afternoon_completed else "03:00 PM"
 
                 await attendance_coll.update_one(
                     {"_id": existing_doc["_id"]},
@@ -477,21 +533,21 @@ async def check_and_finalize_sessions(target_date: Optional[str] = None):
                     }}
                 )
         else:
-            m_status = "Absent" if morning_completed else "---"
-            a_status = "Absent" if afternoon_completed else "---"
+            m_status = default_unmarked_status if morning_completed else "---"
+            a_status = default_unmarked_status if afternoon_completed else "---"
             
             if morning_completed and afternoon_completed:
-                gen_status = "Absent"
+                gen_status = default_unmarked_status
             elif morning_completed:
-                gen_status = "Absent"
+                gen_status = default_unmarked_status
             else:
-                gen_status = "Absent"
+                gen_status = default_unmarked_status
 
-            rec_time = "09:30 AM" if morning_completed else "02:15 PM"
+            rec_time = "09:30 AM" if morning_completed and not afternoon_completed else "03:00 PM"
 
             doc = {
                 "name": student.get("name"),
-                "registerNo": reg_no,
+                "registerNo": reg_str,
                 "rollNo": student.get("rollNo") or student.get("roll_no") or student.get("rollNumber") or "---",
                 "department": student.get("department", "---"),
                 "section": student.get("section", "---"),
@@ -500,12 +556,12 @@ async def check_and_finalize_sessions(target_date: Optional[str] = None):
                 "day": day_name,
                 "morningSession": m_status,
                 "afternoonSession": a_status,
-                "session": "Morning" if morning_completed else "Afternoon",
+                "session": "Morning" if morning_completed and not afternoon_completed else "Afternoon",
                 "time": rec_time,
                 "attendance_time": rec_time,
                 "status": gen_status,
                 "confidence": 0.0,
-                "method": "System (Absent)",
+                "method": "System (Leave)" if has_approved_leave else "System (Absent)",
                 "studentId": str(student["_id"])
             }
             await attendance_coll.insert_one(doc)

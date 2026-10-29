@@ -44,28 +44,48 @@ async def load_student_encodings():
             
         uploaded_images = student.get("uploadedImages") or student.get("images") or []
         db_encodings = student.get("faceEncodings", [])
-        
-        if not uploaded_images and not db_encodings:
-            continue
-            
         student_encodings = []
-        
+
         if db_encodings:
             # Load from DB cache directly
             student_encodings = [np.array(enc) for enc in db_encodings]
-        elif uploaded_images:
-            # Calculate and cache
+        else:
+            # Look for student images from uploadedImages, avatar, and dataset directory
+            candidate_paths = []
+            for img_path in uploaded_images:
+                candidate_paths.append(img_path)
+            if student.get("avatar") and "/dataset/" in str(student.get("avatar")):
+                candidate_paths.append(student.get("avatar"))
+
+            # Check disk dataset directories
+            possible_dataset_dirs = [
+                os.path.join(DATASET_DIR, reg_no_str),
+                os.path.join(os.getcwd(), DATASET_DIR, reg_no_str),
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "dataset", reg_no_str)
+            ]
+            for p_dir in possible_dataset_dirs:
+                if os.path.isdir(p_dir):
+                    for f in os.listdir(p_dir):
+                        if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+                            candidate_paths.append(os.path.join(p_dir, f))
+
             updated_db_encodings = []
             needs_save = False
-            for img_path in uploaded_images:
-                relative_path = img_path.lstrip("/")
-                full_path = os.path.join(os.getcwd(), relative_path)
-                
-                if not os.path.exists(full_path):
-                    filename = os.path.basename(img_path)
-                    full_path = os.path.join(DATASET_DIR, reg_no_str, filename)
-                    
-                if os.path.exists(full_path):
+            for raw_path in candidate_paths:
+                relative_path = raw_path.lstrip("/")
+                candidates_to_try = [
+                    raw_path,
+                    os.path.join(os.getcwd(), relative_path),
+                    os.path.join(DATASET_DIR, reg_no_str, os.path.basename(raw_path)),
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "dataset", reg_no_str, os.path.basename(raw_path))
+                ]
+                full_path = None
+                for c in candidates_to_try:
+                    if os.path.exists(c) and os.path.isfile(c):
+                        full_path = c
+                        break
+
+                if full_path:
                     try:
                         image = face_recognition.load_image_file(full_path)
                         encodings = face_recognition.face_encodings(image)
@@ -75,12 +95,13 @@ async def load_student_encodings():
                             needs_save = True
                     except Exception as e:
                         logger.error(f"Error loading face encoding for {reg_no_str} from {full_path}: {e}")
-            
-            if needs_save:
+
+            if needs_save and updated_db_encodings:
                 await student_coll.update_one(
                     {"_id": student["_id"]},
                     {"$set": {"faceEncodings": updated_db_encodings}}
                 )
+                logger.info(f"Persisted {len(updated_db_encodings)} face encodings to PostgreSQL for student {reg_no_str}.")
                 
         if student_encodings:
             new_encodings[reg_no_str] = student_encodings
