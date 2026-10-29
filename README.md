@@ -1,16 +1,31 @@
-# React + Vite
+# Smart Attendance Register System
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A Smart Attendance Register System built with React, FastAPI, Python, and PostgreSQL, featuring student management, attendance tracking, and reporting.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Student registration and profile management
+- Attendance tracking and live attendance dashboard
+- Advisor and student portal flows
+- Reports and attendance history views
+- Backend API using FastAPI
+- Database integration with PostgreSQL and MongoDB migration scripts
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Frontend: React + Vite
+- Backend: FastAPI + Python
+- Database: PostgreSQL / MongoDB migration scripts
+- Styling: Custom React app design
 
-## Expanding the Oxlint configuration
+## Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+1. Install frontend dependencies:
+   npm install
+2. Start the frontend:
+   npm run dev
+3. Set up and run the backend if needed using the FastAPI app in the backend folder.
+
+## Repository Notes
+
+This project includes the frontend app, FastAPI backend, migration scripts, and supporting dataset assets for the Smart Attendance Register System.
