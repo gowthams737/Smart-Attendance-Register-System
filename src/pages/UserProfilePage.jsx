@@ -74,7 +74,8 @@ export default function UserProfilePage() {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm text-center flex flex-col items-center justify-center">
             <div className="relative group cursor-pointer" onClick={() => setIsPreviewOpen(true)}>
               <img
-                src={profile.avatar}
+                src={apiService.getAssetUrl(profile.avatar)}
+                onError={(e) => apiService.handleImageError(e, profile.name)}
                 alt="Administrator Avatar"
                 className="w-24 h-24 rounded-full object-cover border-4 border-slate-50 dark:border-slate-850 shadow-md transition-opacity hover:opacity-90"
               />
@@ -98,7 +99,8 @@ export default function UserProfilePage() {
                   <IoCloseOutline />
                 </button>
                 <img
-                  src={profile.avatar}
+                  src={apiService.getAssetUrl(profile.avatar)}
+                  onError={(e) => apiService.handleImageError(e, profile.name)}
                   alt="Full Size Administrator Avatar"
                   className="max-h-[80vh] max-w-[85vw] object-contain rounded-xl border border-slate-800 shadow-2xl bg-slate-900"
                 />

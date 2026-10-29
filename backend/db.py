@@ -151,6 +151,10 @@ class AsyncPostgresCollection:
                 col_name = "id" if key == "_id" else key
                 quoted_col = f'"{col_name}"' if col_name != "id" else "id"
 
+            if col_name == "class" and self.table_name in ("students", "leaves", "leave_letters"):
+                col_name = "section"
+                quoted_col = f'"{col_name}"' if not table_alias else f'{table_alias}."{col_name}"'
+
             if hasattr(val, "__class__") and val.__class__.__name__ == "ObjectId":
                 val = str(val)
 
@@ -174,6 +178,11 @@ class AsyncPostgresCollection:
                         in_list = [str(x) if hasattr(x, "__class__") and x.__class__.__name__ == "ObjectId" else x for x in op_val]
                         clauses.append(f"{quoted_col} = ANY(${param_idx})")
                         params.append(list(in_list))
+                        param_idx += 1
+                    elif op == "$nin":
+                        nin_list = [str(x) if hasattr(x, "__class__") and x.__class__.__name__ == "ObjectId" else x for x in op_val]
+                        clauses.append(f"({quoted_col} != ALL(${param_idx}) OR {quoted_col} IS NULL)")
+                        params.append(list(nin_list))
                         param_idx += 1
                     elif op == "$ne":
                         clauses.append(f"({quoted_col} != ${param_idx} OR {quoted_col} IS NULL)")
@@ -770,6 +779,12 @@ async def init_postgres_schema():
 
         for index_sql in TABLE_INDEXES:
             await conn.execute(index_sql)
+
+        # Ensure compatibility columns exist
+        await conn.execute('ALTER TABLE students ADD COLUMN IF NOT EXISTS "class" VARCHAR(50);')
+        await conn.execute('ALTER TABLE leaves ADD COLUMN IF NOT EXISTS "class" VARCHAR(50);')
+        await conn.execute('ALTER TABLE leave_letters ADD COLUMN IF NOT EXISTS "class" VARCHAR(50);')
+
         logger.info("Verified/created all PostgreSQL table indexes successfully.")
 
 async def close_postgres_connection():

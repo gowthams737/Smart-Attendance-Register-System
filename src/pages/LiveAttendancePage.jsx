@@ -474,7 +474,7 @@ export default function LiveAttendancePage() {
                   </div>
                 ) : (
                   <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 p-4 rounded-xl flex flex-col items-center">
-                    <img src={apiService.getAssetUrl(detectedStudent.avatar)} alt={detectedStudent.name} className="w-16 h-16 rounded-full object-cover border-2 border-indigo-650 shadow-md" />
+                    <img src={apiService.getAssetUrl(detectedStudent.avatar)} onError={(e) => apiService.handleImageError(e, detectedStudent.name)} alt={detectedStudent.name} className="w-16 h-16 rounded-full object-cover border-2 border-indigo-650 shadow-md" />
                     <h4 className="text-base font-bold text-slate-900 dark:text-white mt-2 font-heading">{detectedStudent.name}</h4>
                     <div className="flex items-center gap-2 mt-0.5 text-xs">
                       <span className="font-mono font-bold text-slate-500 dark:text-slate-400">{detectedStudent.registerNo}</span>
@@ -539,7 +539,7 @@ export default function LiveAttendancePage() {
                   logs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/20 transition-colors">
                       <td className="py-3 flex items-center gap-2.5">
-                        <img src={apiService.getAssetUrl(log.avatar)} alt={log.name} className="w-7 h-7 rounded-full object-cover" />
+                        <img src={apiService.getAssetUrl(log.avatar)} onError={(e) => apiService.handleImageError(e, log.name)} alt={log.name} className="w-7 h-7 rounded-full object-cover" />
                         <span className="font-semibold text-slate-900 dark:text-white">{log.name}</span>
                       </td>
                       <td className="py-3 font-mono font-bold text-slate-500 dark:text-slate-400">{log.registerNo}</td>

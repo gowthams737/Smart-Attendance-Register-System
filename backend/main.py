@@ -58,6 +58,16 @@ app.add_middleware(
 # Ensure dataset directory exists
 os.makedirs(DATASET_DIR, exist_ok=True)
 
+# Dataset Image Serving (serves real photo if exists, otherwise redirects to fallback avatar)
+@app.get("/dataset/{register_no}/{filename}")
+async def serve_dataset_image(register_no: str, filename: str):
+    file_path = os.path.join(DATASET_DIR, register_no, filename)
+    if os.path.isfile(file_path):
+        from fastapi.responses import FileResponse
+        return FileResponse(file_path)
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(f"https://ui-avatars.com/api/?name={register_no}&background=6366f1&color=fff&bold=true")
+
 # Mount dataset directory to serve student images statically
 app.mount("/dataset", StaticFiles(directory=DATASET_DIR), name="dataset")
 
@@ -147,6 +157,84 @@ async def seed_database():
         }
         await settings_coll.insert_one(default_settings)
         logger.info("Seeded default settings.")
+
+    # Synchronize and verify Admin / Advisor Accounts
+    from backend.db import get_admins_collection
+    admins_coll = get_admins_collection()
+    
+    # 1. Update HOD profile avatar with real photo
+    hod = await admins_coll.find_one({"email": "sgowtham731@gmail.com"})
+    if hod:
+        if not hod.get("avatar") or "unsplash.com" in hod.get("avatar", ""):
+            await admins_coll.update_one(
+                {"_id": hod["_id"]},
+                {"$set": {"avatar": "/dataset/714024104065/image4.jpg"}}
+            )
+            logger.info("Updated HOD avatar to real registered image.")
+
+    # 2. Synchronize standard class advisor accounts
+    advisor_seeds = [
+        {
+            "name": "Class Advisor (3rd Year - CSE B)",
+            "email": "csebadmin@gmail.com",
+            "password": hash_password("123456"),
+            "role": "class_teacher",
+            "is_hod": False,
+            "year": "3rd Year",
+            "section": "CSE B",
+            "class": "CSE B",
+            "title": "Class Advisor - 3rd Year CSE B",
+            "roll": "Class Advisor - 3rd Year CSE B",
+            "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100",
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %I:%M %p")
+        },
+        {
+            "name": "Class Advisor (3rd Year - CSE B)",
+            "email": "3csebadmin@gmail.com",
+            "password": hash_password("123456"),
+            "role": "class_teacher",
+            "is_hod": False,
+            "year": "3rd Year",
+            "section": "CSE B",
+            "class": "CSE B",
+            "title": "Class Advisor - 3rd Year CSE B",
+            "roll": "Class Advisor - 3rd Year CSE B",
+            "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100",
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %I:%M %p")
+        },
+        {
+            "name": "Class Advisor (2nd Year - CSE A)",
+            "email": "cseaadmin@gmail.com",
+            "password": hash_password("123456"),
+            "role": "class_teacher",
+            "is_hod": False,
+            "year": "2nd Year",
+            "section": "CSE A",
+            "class": "CSE A",
+            "title": "Class Advisor - 2nd Year CSE A",
+            "roll": "Class Advisor - 2nd Year CSE A",
+            "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100",
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %I:%M %p")
+        }
+    ]
+
+    for adv in advisor_seeds:
+        existing_adv = await admins_coll.find_one({"email": adv["email"]})
+        if not existing_adv:
+            await admins_coll.insert_one(adv)
+            logger.info(f"Seeded class advisor: {adv['email']} ({adv['year']} {adv['section']})")
+        else:
+            if not existing_adv.get("year") or not existing_adv.get("section") or not existing_adv.get("role"):
+                await admins_coll.update_one(
+                    {"_id": existing_adv["_id"]},
+                    {"$set": {
+                        "year": adv["year"],
+                        "section": adv["section"],
+                        "class": adv["class"],
+                        "role": adv["role"],
+                        "is_hod": False
+                    }}
+                )
 
 async def periodic_attendance_finalizer():
     logger.info("Started continuous background automatic attendance finalizer loop.")

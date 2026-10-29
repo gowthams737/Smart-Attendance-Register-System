@@ -37,10 +37,7 @@ async def get_dashboard_data(current_admin: dict = Depends(get_current_admin)):
         sec_regex = f"^(CSE\\s*)?{re.escape(sec_clean)}$" if sec_clean else ".*"
         student_query = {
             "year": {"$regex": f"^{re.escape(yr_raw)}$", "$options": "i"},
-            "$or": [
-                {"section": {"$regex": sec_regex, "$options": "i"}},
-                {"class": {"$regex": sec_regex, "$options": "i"}}
-            ]
+            "section": {"$regex": sec_regex, "$options": "i"}
         }
 
     total_students = await student_coll.count_documents(student_query)
@@ -192,10 +189,7 @@ async def get_dashboard_data(current_admin: dict = Depends(get_current_admin)):
         dept_pipeline.append({
             "$match": {
                 "year": {"$regex": f"^{re.escape(scope['year'])}$", "$options": "i"},
-                "$or": [
-                    {"section": {"$regex": sec_regex, "$options": "i"}},
-                    {"class": {"$regex": sec_regex, "$options": "i"}}
-                ]
+                "section": {"$regex": sec_regex, "$options": "i"}
             }
         })
     dept_pipeline.extend([

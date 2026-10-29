@@ -37,7 +37,6 @@ __pycache__/
 python-embed/
 python-embed.zip
 mongodb_data/
-dataset/
 backups/
 scratch/
 tmp/

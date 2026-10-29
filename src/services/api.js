@@ -19,6 +19,17 @@ export function getAssetUrl(path) {
   return path;
 }
 
+export function getDefaultAvatar(name = 'User') {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=6366f1&color=fff&bold=true`;
+}
+
+export function handleImageError(event, fallbackName = 'User') {
+  if (event && event.currentTarget) {
+    event.currentTarget.onerror = null;
+    event.currentTarget.src = getDefaultAvatar(fallbackName);
+  }
+}
+
 async function handleResponse(response) {
   const isLoginRequest = response.url && response.url.includes('/auth/login');
   if (response.status === 401 && !isLoginRequest) {
@@ -69,6 +80,8 @@ async function authFetch(url, options = {}) {
 
 export const apiService = {
   getAssetUrl,
+  getDefaultAvatar,
+  handleImageError,
   // Auth
   async login(email, password) {
     const response = await authFetch(`${API_BASE_URL}/auth/login`, {

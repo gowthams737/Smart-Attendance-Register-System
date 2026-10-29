@@ -105,10 +105,7 @@ async def get_students(
         sec_clean = re.sub(r"^(CSE[\s\-]*|Class[\s\-]*|Section[\s\-]*)", "", scope["section"], flags=re.IGNORECASE).strip()
         sec_regex = f"^(CSE\\s*[-]?\\s*|Section\\s*)?{re.escape(sec_clean)}$"
         query_parts.append({
-            "$or": [
-                {"section": {"$regex": sec_regex, "$options": "i"}},
-                {"class": {"$regex": sec_regex, "$options": "i"}}
-            ]
+            "section": {"$regex": sec_regex, "$options": "i"}
         })
     elif year and year not in ["All", "all", "All Years", "All Classes", ""]:
         y_num = "".join(filter(str.isdigit, year))
@@ -127,10 +124,7 @@ async def get_students(
         sec_clean = re.sub(r"^(CSE[\s\-]*|Class[\s\-]*|Section[\s\-]*)", "", section, flags=re.IGNORECASE).strip()
         sec_regex = f"^(CSE\\s*[-]?\\s*|Section\\s*)?{re.escape(sec_clean)}$"
         query_parts.append({
-            "$or": [
-                {"section": {"$regex": sec_regex, "$options": "i"}},
-                {"class": {"$regex": sec_regex, "$options": "i"}}
-            ]
+            "section": {"$regex": sec_regex, "$options": "i"}
         })
 
     final_query = {}

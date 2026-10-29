@@ -45,10 +45,7 @@ async def get_scoped_student_register_nos(scope: dict) -> Optional[set]:
     sec_regex = f"^(CSE\\s*)?{re.escape(sec_clean)}$"
     query = {
         "year": {"$regex": f"^{re.escape(scope['year'])}$", "$options": "i"},
-        "$or": [
-            {"section": {"$regex": sec_regex, "$options": "i"}},
-            {"class": {"$regex": sec_regex, "$options": "i"}}
-        ]
+        "section": {"$regex": sec_regex, "$options": "i"}
     }
     reg_nos = set()
     async for s in student_coll.find(query, {"registerNo": 1}):
@@ -968,10 +965,7 @@ async def get_scoped_student_register_nos(scope: dict) -> Optional[set]:
     sec_regex = f"^(CSE\\s*)?{re.escape(sec_clean)}$" if sec_clean else ".*"
     query = {
         "year": {"$regex": f"^{re.escape(yr_raw)}$", "$options": "i"},
-        "$or": [
-            {"section": {"$regex": sec_regex, "$options": "i"}},
-            {"class": {"$regex": sec_regex, "$options": "i"}}
-        ]
+        "section": {"$regex": sec_regex, "$options": "i"}
     }
     reg_nos = set()
     async for s in student_coll.find(query, {"registerNo": 1}):

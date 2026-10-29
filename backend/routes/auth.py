@@ -234,18 +234,19 @@ async def get_or_create_default_admin():
         if admin:
             await coll.update_one(
                 {"_id": admin["_id"]},
-                {"$set": {"email": "sgowtham731@gmail.com", "password": hash_password("101974"), "name": "Gowtham S"}}
+                {"$set": {"email": "sgowtham731@gmail.com", "password": hash_password("101974"), "name": "Gowtham S", "avatar": "/dataset/714024104065/image4.jpg"}}
             )
             admin["email"] = "sgowtham731@gmail.com"
             admin["password"] = hash_password("101974")
             admin["name"] = "Gowtham S"
+            admin["avatar"] = "/dataset/714024104065/image4.jpg"
         else:
             default_admin = {
                 "name": "Gowtham S",
                 "email": "sgowtham731@gmail.com",
                 "phone": "+91 99999 99999",
                 "title": "Dean of Technology",
-                "avatar": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100",
+                "avatar": "/dataset/714024104065/image4.jpg",
                 "password": hash_password("101974")
             }
             await coll.insert_one(default_admin)
