@@ -1,4 +1,23 @@
-const API_BASE_URL = '/api';
+const rawApiUrl = (import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://smart-attendance-register-system.onrender.com' : '')).trim().replace(/\/+$/, '');
+
+export const API_BASE_URL = rawApiUrl
+  ? (rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`)
+  : '/api';
+
+export const BACKEND_BASE_URL = rawApiUrl
+  ? rawApiUrl.replace(/\/api$/, '')
+  : '';
+
+export function getAssetUrl(path) {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('blob:')) {
+    return path;
+  }
+  if (BACKEND_BASE_URL && path.startsWith('/')) {
+    return `${BACKEND_BASE_URL}${path}`;
+  }
+  return path;
+}
 
 async function handleResponse(response) {
   const isLoginRequest = response.url && response.url.includes('/auth/login');
@@ -49,6 +68,7 @@ async function authFetch(url, options = {}) {
 
 
 export const apiService = {
+  getAssetUrl,
   // Auth
   async login(email, password) {
     const response = await authFetch(`${API_BASE_URL}/auth/login`, {
@@ -146,7 +166,8 @@ export const apiService = {
   },
 
   async deleteStudentImage(registerNo, imagePath) {
-    const response = await authFetch(`${API_BASE_URL}/students/${registerNo}/images?imagePath=${encodeURIComponent(imagePath)}`, {
+    const cleanPath = typeof imagePath === 'string' ? imagePath.replace(/^https?:\/\/[^/]+/, '') : imagePath;
+    const response = await authFetch(`${API_BASE_URL}/students/${registerNo}/images?imagePath=${encodeURIComponent(cleanPath)}`, {
       method: 'DELETE',
     });
     return handleResponse(response);

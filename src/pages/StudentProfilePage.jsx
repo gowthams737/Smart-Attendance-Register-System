@@ -100,7 +100,7 @@ export default function StudentProfilePage() {
         {/* Profile Card Header */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-6">
           <img
-            src={profile?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"}
+            src={apiService.getAssetUrl(profile?.avatar) || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"}
             alt={profile?.name}
             className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl object-cover border-4 border-indigo-500/20 shadow-md"
           />

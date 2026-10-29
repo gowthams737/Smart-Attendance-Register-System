@@ -332,7 +332,7 @@ export default function DashboardPage() {
                         <tr key={student.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/20 transition-colors">
                           <td className="py-3 font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                             {student.avatar && (
-                              <img src={student.avatar.startsWith('/') ? student.avatar : student.avatar} alt={student.name} className="w-6 h-6 rounded-full object-cover" />
+                              <img src={apiService.getAssetUrl(student.avatar)} alt={student.name} className="w-6 h-6 rounded-full object-cover" />
                             )}
                             <span>{student.name}</span>
                           </td>

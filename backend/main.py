@@ -31,9 +31,24 @@ app = FastAPI(
 )
 
 # CORS configuration
+allowed_origins = [
+    "https://smart-attendance-frontend-r0tq.onrender.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+frontend_env = os.getenv("FRONTEND_URL")
+if frontend_env:
+    for u in frontend_env.split(","):
+        clean_u = u.strip().rstrip("/")
+        if clean_u and clean_u not in allowed_origins:
+            allowed_origins.append(clean_u)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all origins for development
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

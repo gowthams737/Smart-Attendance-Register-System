@@ -306,7 +306,7 @@ export default function DashboardLayout({ children }) {
       <div className="p-4 border-t border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-3 overflow-hidden">
           <img
-            src={adminInfo.avatar}
+            src={apiService.getAssetUrl(adminInfo.avatar)}
             alt="Admin Profile"
             className="w-9 h-9 rounded-full border border-slate-700 shrink-0 object-cover"
           />
@@ -455,7 +455,7 @@ export default function DashboardLayout({ children }) {
                 className="flex items-center gap-2 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
               >
                 <img
-                  src={adminInfo.avatar}
+                  src={apiService.getAssetUrl(adminInfo.avatar)}
                   alt="Admin Avatar"
                   className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700"
                 />

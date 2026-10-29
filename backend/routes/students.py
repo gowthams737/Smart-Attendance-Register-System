@@ -344,21 +344,27 @@ async def delete_student_image(
         )
     check_student_scope_permission(student, scope)
         
-    if imagePath in student.get("uploadedImages", []):
+    target_path = imagePath
+    if "://" in imagePath:
+        from urllib.parse import urlparse
+        target_path = urlparse(imagePath).path
+        
+    if target_path in student.get("uploadedImages", []) or imagePath in student.get("uploadedImages", []):
+        matched_path = target_path if target_path in student.get("uploadedImages", []) else imagePath
         await coll.update_one(
             {"registerNo": register_no},
-            {"$pull": {"uploadedImages": imagePath}}
+            {"$pull": {"uploadedImages": matched_path}}
         )
         
-        if student.get("avatar") == imagePath:
-            remaining_images = [img for img in student.get("uploadedImages", []) if img != imagePath]
+        if student.get("avatar") in (matched_path, imagePath, target_path):
+            remaining_images = [img for img in student.get("uploadedImages", []) if img not in (matched_path, imagePath, target_path)]
             new_avatar = remaining_images[0] if remaining_images else "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
             await coll.update_one(
                 {"registerNo": register_no},
                 {"$set": {"avatar": new_avatar}}
             )
 
-        filename = os.path.basename(imagePath)
+        filename = os.path.basename(matched_path)
         file_path = os.path.join(DATASET_DIR, register_no, filename)
         if os.path.exists(file_path):
             try:

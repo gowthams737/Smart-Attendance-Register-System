@@ -348,7 +348,7 @@ export default function StudentManagementPage({ Layout = DashboardLayout }) {
                   filteredStudents.map((student) => (
                     <tr key={student.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
                       <td className="px-6 py-4 flex items-center gap-3">
-                        <img src={student.avatar} alt={student.name} className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-800" />
+                        <img src={apiService.getAssetUrl(student.avatar)} alt={student.name} className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-800" />
                         <div>
                           <p className="font-bold text-slate-900 dark:text-white text-sm">{student.name}</p>
                           <p className="text-xs text-slate-400 font-medium mt-0.5">{student.email}{student.gender && student.gender !== 'Not Specified' ? ` • ${student.gender}` : ''}</p>
@@ -647,7 +647,7 @@ export default function StudentManagementPage({ Layout = DashboardLayout }) {
                       <div className="grid grid-cols-4 gap-2 mb-3">
                         {currentStudent.uploadedImages.map((img, idx) => (
                           <div key={idx} className="relative group aspect-square bg-slate-100 dark:bg-slate-950 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
-                            <img src={img} className="w-full h-full object-cover" alt="biometric" />
+                            <img src={apiService.getAssetUrl(img)} className="w-full h-full object-cover" alt="biometric" />
                             <button
                               type="button"
                               onClick={async () => {
