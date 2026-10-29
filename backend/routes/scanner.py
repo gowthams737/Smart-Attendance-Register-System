@@ -240,19 +240,47 @@ async def recognize_face(
                     "student": student_payload
                 }
 
-            # Determine session (Morning before 1:00 PM IST, Afternoon from 1:00 PM IST onward)
-            decimal_time = now.hour + now.minute / 60.0
-            if decimal_time < 13.0:
+            # Exact IST Session Windows (Asia/Kolkata):
+            # Morning Session: 8:30 AM (8.5) to 9:30 AM (9.5) IST
+            # Afternoon Session: 2:00 PM (14.0) to 3:00 PM (15.0) IST
+            decimal_time = now.hour + now.minute / 60.0 + now.second / 3600.0
+            in_morning_window = (8.5 <= decimal_time <= 9.5)
+            in_afternoon_window = (14.0 <= decimal_time <= 15.0)
+
+            if in_morning_window:
                 session_name = "Morning"
                 morning_session = "Present"
                 afternoon_session = "---"
-            else:
+                status_determined = "Present"
+                save_record = True
+                detail_msg = f"Recognized: {student_payload['name']} -> Marked Present for Morning Session"
+            elif in_afternoon_window:
                 session_name = "Afternoon"
                 morning_session = "---"
                 afternoon_session = "Present"
-            status_determined = "Present"
-            save_record = True
-            detail_msg = f"Recognized: {student_payload['name']} -> Marked Present for {session_name} Session"
+                status_determined = "Present"
+                save_record = True
+                detail_msg = f"Recognized: {student_payload['name']} -> Marked Present for Afternoon Session"
+            else:
+                save_record = False
+                if decimal_time < 8.5:
+                    session_name = "Morning"
+                    morning_session = "---"
+                    afternoon_session = "---"
+                    status_determined = "Pending"
+                    detail_msg = f"Recognized: {student_payload['name']} (Morning attendance opens at 8:30 AM IST. Scanning inactive)."
+                elif decimal_time < 14.0:
+                    session_name = "Morning"
+                    morning_session = "---"
+                    afternoon_session = "---"
+                    status_determined = "Outside Window"
+                    detail_msg = f"Recognized: {student_payload['name']} (Morning session closed at 9:30 AM IST. Afternoon session opens at 2:00 PM IST)."
+                else:
+                    session_name = "Afternoon"
+                    morning_session = "---"
+                    afternoon_session = "---"
+                    status_determined = "Outside Window"
+                    detail_msg = f"Recognized: {student_payload['name']} (Afternoon session closed at 3:00 PM IST. Attendance scanning concluded for today)."
 
             # Check database for existing attendance record today
             attendance_coll = get_attendance_collection()
@@ -266,15 +294,17 @@ async def recognize_face(
             })
 
             if existing_record:
+                # Preserve existing session statuses
+                if existing_record.get("morningSession"):
+                    morning_session = existing_record.get("morningSession")
+                if existing_record.get("afternoonSession"):
+                    afternoon_session = existing_record.get("afternoonSession")
+
                 session_already_present = False
                 if session_name == "Morning":
                     session_already_present = (existing_record.get("morningSession") == "Present")
-                    if existing_record.get("afternoonSession"):
-                        afternoon_session = existing_record.get("afternoonSession")
                 elif session_name == "Afternoon":
                     session_already_present = (existing_record.get("afternoonSession") == "Present")
-                    if existing_record.get("morningSession"):
-                        morning_session = existing_record.get("morningSession")
                 else:
                     session_already_present = (existing_record.get("status") == "Present")
 

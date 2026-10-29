@@ -827,8 +827,33 @@ async def create_attendance_record(
     if session_name == "Afternoon" and a_sess == "---":
         a_sess = record.status
 
+    now_ist = get_ist_now()
+    today_ist = now_ist.strftime("%Y-%m-%d")
+    is_face_rec = (record.method == "Face Recognition")
+
+    # Enforce allowed IST scanning windows for face recognition scans:
+    if is_face_rec and record.date == today_ist:
+        cur_dec = now_ist.hour + now_ist.minute / 60.0 + now_ist.second / 3600.0
+        if session_name == "Morning" and not (8.48 <= cur_dec <= 9.52):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Morning attendance can only be recorded between 8:30 AM and 9:30 AM IST."
+            )
+        if session_name == "Afternoon" and not (13.98 <= cur_dec <= 15.02):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Afternoon attendance can only be recorded between 2:00 PM and 3:00 PM IST."
+            )
+
     if existing:
         is_manual = bool(existing.get("modifiedManually") or existing.get("method") == "Manual Admin Correction")
+
+        # Duplicate scan check: If student is already recorded Present for this session, ignore duplicate safely
+        if not is_manual and is_face_rec:
+            if session_name == "Morning" and existing.get("morningSession") == "Present":
+                return serialize_attendance(existing)
+            if session_name == "Afternoon" and existing.get("afternoonSession") == "Present":
+                return serialize_attendance(existing)
 
         # Morning session status logic
         if session_name == "Morning" and (record.morningSession in ["Present", "Absent"] or record.status in ["Present", "Absent"]):

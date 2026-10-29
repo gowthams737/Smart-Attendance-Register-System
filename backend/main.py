@@ -258,8 +258,14 @@ async def periodic_attendance_finalizer():
     logger.info("Started continuous background automatic attendance finalizer loop (IST schedule).")
     while True:
         try:
-            from backend.routes.attendance import check_and_finalize_sessions
-            await check_and_finalize_sessions()
+            from backend.routes.attendance import check_and_finalize_sessions, get_ist_now
+            now = get_ist_now()
+            today_str = now.strftime("%Y-%m-%d")
+            # 1. Finalize closed sessions for today (Morning after 9:30 AM, Afternoon after 3:00 PM)
+            await check_and_finalize_sessions(today_str)
+            # 2. Recover and finalize any missed sessions from yesterday (e.g. server restart/sleep)
+            yesterday_str = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+            await check_and_finalize_sessions(yesterday_str)
         except Exception as e:
             logger.error(f"Error in periodic_attendance_finalizer: {e}")
         await asyncio.sleep(30)
@@ -275,6 +281,13 @@ async def startup_event():
         await load_student_encodings()
     except Exception as e:
         logger.error(f"Failed to pre-load face encodings: {e}")
+    try:
+        from backend.routes.attendance import check_and_finalize_sessions, get_ist_now
+        now = get_ist_now()
+        await check_and_finalize_sessions(now.strftime("%Y-%m-%d"))
+        await check_and_finalize_sessions((now - timedelta(days=1)).strftime("%Y-%m-%d"))
+    except Exception as e:
+        logger.error(f"Error running initial attendance session check on startup: {e}")
     asyncio.create_task(periodic_attendance_finalizer())
 
 @app.on_event("shutdown")
